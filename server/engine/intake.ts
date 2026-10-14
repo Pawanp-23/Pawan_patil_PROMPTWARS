@@ -7,12 +7,12 @@ import { AnalysisError, type ModelClient } from './analyze.js';
 import { containsRecommendation } from './guard.js';
 import { INTAKE_SCHEMA } from './schemas.js';
 import { CLOSING_LINE } from '../../shared/voice.js';
+import { profileFor, withLanguage } from '../../shared/languages.js';
 
 /** After this many user answers the interview wraps up, whatever the model says. */
 export const MAX_USER_TURNS = 6;
 
 export { CLOSING_LINE };
-const FALLBACK_QUESTION = 'Okay, real talk: what’s actually pulling you toward that side?';
 
 export const INTAKE_PROMPT = `You are BlindSpot's voice interviewer. You help a person describe a decision so it can be examined later.
 You NEVER give opinions, advice, reassurance about an option, or hints about what to choose.
@@ -61,7 +61,12 @@ export async function intakeTurn(
   request: IntakeRequest,
   client: ModelClient,
 ): Promise<IntakeResponse> {
-  const raw = await client.generateJson(INTAKE_PROMPT, transcript(request), INTAKE_SCHEMA);
+  const lines = profileFor(request.language);
+  const raw = await client.generateJson(
+    withLanguage(INTAKE_PROMPT, request.language),
+    transcript(request),
+    INTAKE_SCHEMA,
+  );
 
   let json: unknown;
   try {
@@ -78,11 +83,11 @@ export async function intakeTurn(
   const ranOut = userTurns >= MAX_USER_TURNS;
 
   let reply = parsed.data.reply.trim();
-  if (done) reply = CLOSING_LINE;
-  else if (!reply || containsRecommendation(reply)) reply = FALLBACK_QUESTION;
+  if (done) reply = lines.closing;
+  else if (!reply || containsRecommendation(reply)) reply = lines.fallbackQuestion;
 
   return {
-    reply: ranOut && !done ? 'Let’s fill in the rest together on the page.' : reply,
+    reply: ranOut && !done ? lines.ranOut : reply,
     done: done || ranOut,
     fields: {
       decision: fields.decision.trim(),

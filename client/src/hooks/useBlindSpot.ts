@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { computeCoverage } from '../../../shared/coverage';
+import type { Language } from '../../../shared/languages';
 import type {
   AnalyzeRequest,
   AnalyzeResponse,
@@ -15,13 +16,18 @@ import { EMPTY_DRAFT, type DecisionDraft } from '../lib/sample';
 export type Stage = 'input' | 'review' | 'summary';
 
 /** Turns the form draft into a validated-shape API request. */
-export function toRequest(source: DecisionDraft, reflections: Reflection[]): AnalyzeRequest {
+export function toRequest(
+  source: DecisionDraft,
+  reflections: Reflection[],
+  language: Language = 'en',
+): AnalyzeRequest {
   return {
     decision: source.decision.trim(),
     options: parseOptions(source.options),
     context: source.context.trim(),
     reasons: source.reasons.trim(),
     reflections: reflections.length ? reflections.slice(-12) : undefined,
+    language,
   };
 }
 
@@ -50,6 +56,7 @@ export function isComplete(draft: DecisionDraft): boolean {
  */
 export function useBlindSpot() {
   const [stage, setStage] = useState<Stage>('input');
+  const [language, setLanguage] = useState<Language>('en');
   const [draft, setDraft] = useState<DecisionDraft>(EMPTY_DRAFT);
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [initialCoverage, setInitialCoverage] = useState<Coverage | null>(null);
@@ -89,7 +96,7 @@ export function useBlindSpot() {
   );
 
   const run = async (reflections: Reflection[], source: DecisionDraft = draft) => {
-    const request = toRequest(source, reflections);
+    const request = toRequest(source, reflections, language);
     if (!request.options.length) {
       setError('Please add at least one option.');
       return;
@@ -134,6 +141,8 @@ export function useBlindSpot() {
   return {
     stage,
     setStage,
+    language,
+    setLanguage,
     draft,
     setDraft,
     result,

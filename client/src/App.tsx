@@ -54,6 +54,8 @@ export function App() {
           {shared.status === 'none' && stage === 'input' && (
             <LandingView
               draft={draft}
+              language={session.language}
+              onLanguageChange={session.setLanguage}
               busy={busy}
               onDraftChange={session.setDraft}
               onAnalyze={session.analyzeDraft}

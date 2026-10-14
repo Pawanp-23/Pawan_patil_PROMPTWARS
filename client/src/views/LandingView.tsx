@@ -1,5 +1,7 @@
+import type { Language } from '../../../shared/languages';
 import type { IntakeResponse } from '../../../shared/schema';
 import { DecisionForm } from '../components/DecisionForm';
+import { LanguageSwitch } from '../components/LanguageSwitch';
 import { Reveal } from '../components/Reveal';
 import { VoiceAgent } from '../components/VoiceAgent';
 import type { DecisionDraft } from '../lib/sample';
@@ -21,6 +23,8 @@ const STEPS = [
 
 interface Props {
   draft: DecisionDraft;
+  language: Language;
+  onLanguageChange: (language: Language) => void;
   busy: boolean;
   onDraftChange: (draft: DecisionDraft) => void;
   onAnalyze: () => void;
@@ -29,7 +33,15 @@ interface Props {
 }
 
 /** Landing: hero, voice intake, how it works, and the written form. */
-export function LandingView({ draft, busy, onDraftChange, onAnalyze, onIntakeComplete }: Props) {
+export function LandingView({
+  draft,
+  language,
+  onLanguageChange,
+  busy,
+  onDraftChange,
+  onAnalyze,
+  onIntakeComplete,
+}: Props) {
   const handleIntake = (fields: IntakeResponse['fields']) => {
     if (!onIntakeComplete(fields)) {
       document.getElementById('write')?.scrollIntoView({ behavior: 'smooth' });
@@ -55,7 +67,9 @@ export function LandingView({ draft, busy, onDraftChange, onAnalyze, onIntakeCom
       </Reveal>
 
       <Reveal delay={0.1}>
-        <VoiceAgent onComplete={handleIntake} />
+        <LanguageSwitch value={language} onChange={onLanguageChange} />
+        {/* Keyed by language so switching starts a fresh conversation in that language. */}
+        <VoiceAgent key={language} language={language} onComplete={handleIntake} />
       </Reveal>
 
       <section className="how" aria-labelledby="how-title">

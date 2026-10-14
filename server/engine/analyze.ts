@@ -3,6 +3,7 @@ import { modelOutputSchema } from '../../shared/schema.js';
 import { computeCoverage } from '../../shared/coverage.js';
 import { guardFindings } from './guard.js';
 import { buildUserPrompt, sourceText, SYSTEM_PROMPT } from './prompt.js';
+import { withLanguage } from '../../shared/languages.js';
 import { groundFindings, groundFocus } from './quotes.js';
 import { TtlCache } from './cache.js';
 import { ANALYSIS_SCHEMA } from './schemas.js';
@@ -30,7 +31,11 @@ export async function analyzeDecision(
   const cached = cache?.get(cacheKey);
   if (cached) return cached;
 
-  const raw = await client.generateJson(SYSTEM_PROMPT, buildUserPrompt(input), ANALYSIS_SCHEMA);
+  const raw = await client.generateJson(
+    withLanguage(SYSTEM_PROMPT, input.language),
+    buildUserPrompt(input),
+    ANALYSIS_SCHEMA,
+  );
 
   let json: unknown;
   try {

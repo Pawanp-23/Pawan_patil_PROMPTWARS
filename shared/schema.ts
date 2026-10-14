@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import { AREAS, BIASES, FINDING_TYPES, REFLECTION_STATUSES } from './areas.js';
+import { LANGUAGES } from './languages.js';
+
+/** Language the user speaks and wants answers in; English when omitted. */
+const languageSchema = z.enum(LANGUAGES).optional();
 
 const text = (min: number, max: number) => z.string().trim().min(min).max(max);
 
@@ -18,6 +22,7 @@ export const analyzeRequestSchema = z.object({
   context: z.string().trim().max(2000).default(''),
   reasons: text(5, 1500),
   reflections: z.array(reflectionSchema).max(12).optional(),
+  language: languageSchema,
 });
 
 export const focusItemSchema = z.object({
@@ -53,6 +58,7 @@ export const intakeTurnSchema = z.object({
 /** Validates the body of POST /api/intake: the conversation so far. */
 export const intakeRequestSchema = z.object({
   history: z.array(intakeTurnSchema).min(1).max(14),
+  language: languageSchema,
 });
 
 /** What the model must return for each intake turn. */
