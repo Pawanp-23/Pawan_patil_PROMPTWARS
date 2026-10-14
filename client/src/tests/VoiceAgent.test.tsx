@@ -56,4 +56,46 @@ describe('VoiceAgent', () => {
     expect(calls.some((call) => call.url === '/api/analyze')).toBe(true);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(fields.decision);
   });
+
+  it('switches to Hindi: the interview and the analysis both ask for Hindi', async () => {
+    const user = userEvent.setup();
+    const fields = {
+      decision: 'क्या मुझे इंटर्नशिप लेनी है?',
+      options: ['लेना', 'न लेना'],
+      context: 'सेमेस्टर के साथ टकराती है।',
+      reasons: 'स्टाइपेंड अच्छा है।',
+    };
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === '/api/intake') return json({ reply: 'धन्यवाद।', done: true, fields });
+      if (url === '/api/analyze') {
+        return json({
+          focus: [],
+          findings: [],
+          coverage: { covered: [], shadow: [], percent: 0 },
+          blockedCount: 0,
+        });
+      }
+      return new Response('{}', { status: 502 });
+    });
+
+    render(<App />);
+    await user.click(screen.getByRole('button', { name: 'हिन्दी' }));
+    expect(screen.getByRole('button', { name: 'हिन्दी' }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+
+    await user.type(screen.getByLabelText('Type your answer'), 'मुझे इंटर्नशिप का ऑफ़र मिला है');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    const bodyFor = async (path: string) => {
+      await vi.waitFor(() =>
+        expect(fetchMock.mock.calls.some(([u]) => String(u) === path)).toBe(true),
+      );
+      const call = fetchMock.mock.calls.find(([u]) => String(u) === path);
+      return JSON.parse(String(call?.[1]?.body));
+    };
+    expect((await bodyFor('/api/intake')).language).toBe('hi');
+    expect((await bodyFor('/api/analyze')).language).toBe('hi');
+  });
 });

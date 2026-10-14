@@ -31,12 +31,15 @@ export function isVoiceSupported(): boolean {
   return recognitionCtor() !== undefined;
 }
 
-/** Returns a speech recognizer if the browser supports one (Chrome, Edge, Safari), else null. */
-export function createRecognition(): Recognition | null {
+/**
+ * Returns a speech recognizer if the browser supports one (Chrome, Edge, Safari), else null.
+ * `lang` is a BCP 47 tag such as hi-IN or mr-IN; English falls back to the browser's own locale.
+ */
+export function createRecognition(lang?: string): Recognition | null {
   const Ctor = recognitionCtor();
   if (!Ctor) return null;
   const recognition = new Ctor();
-  recognition.lang = navigator.language || 'en-US';
+  recognition.lang = lang ?? (navigator.language || 'en-US');
   recognition.interimResults = true;
   recognition.continuous = false;
   return recognition;
@@ -145,9 +148,13 @@ async function streamSpeech(text: string): Promise<void> {
   sources = [];
 }
 
-/** Picks the most natural-sounding voice the browser offers, for the fallback path. */
-function bestBrowserVoice(): SpeechSynthesisVoice | undefined {
-  const voices = window.speechSynthesis.getVoices().filter((v) => v.lang.startsWith('en'));
+/** Picks the most natural-sounding voice the browser offers in a language, for the fallback path. */
+function bestBrowserVoice(lang: string): SpeechSynthesisVoice | undefined {
+  const all = window.speechSynthesis.getVoices();
+  const inLanguage = (base: string) => all.filter((v) => v.lang.startsWith(base));
+  // Few browsers ship a Marathi voice; a Hindi voice reads the same Devanagari script well.
+  let voices = inLanguage(lang.slice(0, 2));
+  if (!voices.length && lang.startsWith('mr')) voices = inLanguage('hi');
   const rank = (voice: SpeechSynthesisVoice) =>
     /natural|neural/i.test(voice.name)
       ? 0
@@ -159,7 +166,7 @@ function bestBrowserVoice(): SpeechSynthesisVoice | undefined {
   return voices.sort((a, b) => rank(a) - rank(b))[0];
 }
 
-function speakWithBrowser(text: string): Promise<void> {
+function speakWithBrowser(text: string, lang: string): Promise<void> {
   return new Promise((resolve) => {
     if (!('speechSynthesis' in window)) {
       resolve();
@@ -167,7 +174,8 @@ function speakWithBrowser(text: string): Promise<void> {
     }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    const voice = bestBrowserVoice();
+    utterance.lang = lang;
+    const voice = bestBrowserVoice(lang);
     if (voice) utterance.voice = voice;
     utterance.rate = 1.1;
     utterance.pitch = 1.05;
@@ -181,10 +189,10 @@ function speakWithBrowser(text: string): Promise<void> {
  * Speaks a line: cached WAV for fixed lines, live streaming for new replies,
  * and the browser voice as a last resort. Resolves when speech finishes.
  */
-export async function speak(text: string, { fixed = false } = {}): Promise<void> {
+export async function speak(text: string, { fixed = false, lang = 'en-IN' } = {}): Promise<void> {
   stopSpeaking();
   if (serverVoiceDown) {
-    await speakWithBrowser(text);
+    await speakWithBrowser(text, lang);
     return;
   }
   try {
@@ -193,7 +201,7 @@ export async function speak(text: string, { fixed = false } = {}): Promise<void>
   } catch (err) {
     if ((err as Error).name === 'AbortError') return;
     serverVoiceDown = true;
-    await speakWithBrowser(text);
+    await speakWithBrowser(text, lang);
   }
 }
 

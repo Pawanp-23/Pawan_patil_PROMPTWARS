@@ -4,6 +4,7 @@ import { createApp } from '../app.js';
 import { CLOSING_LINE, hasEnough, intakeTurn, MAX_USER_TURNS } from '../engine/intake.js';
 import type { IntakeRequest, IntakeResponse } from '../../shared/schema.js';
 import { fakeClient } from './fixtures.js';
+import { LANGUAGE_PROFILES } from '../../shared/languages.js';
 
 const emptyFields = { decision: '', options: [], context: '', reasons: '' };
 const fullFields = {
@@ -68,6 +69,47 @@ describe('intakeTurn', () => {
 
   it('rejects malformed model output', async () => {
     await expect(intakeTurn(history(1), fakeClient('nope'))).rejects.toThrow();
+  });
+});
+
+describe('intakeTurn in Indian languages', () => {
+  const hindi = (userTurns: number): IntakeRequest => ({ ...history(userTurns), language: 'hi' });
+
+  it('asks the model to interview in the chosen language', async () => {
+    let systemPrompt = '';
+    const client = {
+      async generateJson(system: string) {
+        systemPrompt = system;
+        return JSON.stringify(turn({ reply: 'तो विकल्प क्या-क्या हैं?' }));
+      },
+    };
+    const result = await intakeTurn(hindi(1), client);
+    expect(systemPrompt).toContain('spoken Hindi');
+    expect(result.reply).toBe('तो विकल्प क्या-क्या हैं?');
+  });
+
+  it('replaces a Hindi reply that steers the decision with a neutral Hindi question', async () => {
+    const result = await intakeTurn(
+      hindi(2),
+      fakeClient(turn({ reply: 'सच कहूँ तो आपको यह ले लेना चाहिए। आप क्यों रुके हो?' })),
+    );
+    expect(result.reply).toBe(LANGUAGE_PROFILES.hi.fallbackQuestion);
+  });
+
+  it('closes in the chosen language', async () => {
+    const result = await intakeTurn(
+      { ...history(4), language: 'mr' },
+      fakeClient(turn({ done: true, fields: fullFields })),
+    );
+    expect(result.reply).toBe(LANGUAGE_PROFILES.mr.closing);
+  });
+
+  it('rejects an unsupported language', async () => {
+    const app = createApp({ client: fakeClient(turn({})) });
+    const res = await request(app)
+      .post('/api/intake')
+      .send({ ...history(1), language: 'fr' });
+    expect(res.status).toBe(400);
   });
 });
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { m } from 'motion/react';
 import type { IntakeResponse, IntakeTurn } from '../../../shared/schema';
-import { CLOSING_LINE, FILLERS, OPENING_LINE } from '../../../shared/voice';
+import { profileFor, type Language } from '../../../shared/languages';
 import { intake } from '../lib/api';
 import {
   createRecognition,
@@ -33,13 +33,16 @@ const ORB_MOTION: Record<Phase, { scale: number[]; duration: number }> = {
 
 interface Props {
   onComplete: (fields: IntakeResponse['fields']) => void;
+  /** Language the interview is held in. Give the component `key={language}` so a switch starts fresh. */
+  language?: Language;
 }
 
 /**
  * Voice intake: a short spoken interview (typing works too) that fills in the decision,
  * options, details and reasons, then hands off to the analysis. It asks; it never advises.
  */
-export function VoiceAgent({ onComplete }: Props) {
+export function VoiceAgent({ onComplete, language = 'en' }: Props) {
+  const { opening, closing, fillers, speechTag, hint, placeholder } = profileFor(language);
   const [phase, setPhase] = useState<Phase>('idle');
   const [turns, setTurns] = useState<IntakeTurn[]>([]);
   const [interim, setInterim] = useState('');
@@ -63,7 +66,7 @@ export function VoiceAgent({ onComplete }: Props) {
   };
 
   const listen = () => {
-    const recognition = createRecognition();
+    const recognition = createRecognition(speechTag);
     if (!recognition) {
       setPhase('idle');
       return;
@@ -94,7 +97,7 @@ export function VoiceAgent({ onComplete }: Props) {
   const say = async (text: string, then: () => void, fixed = false) => {
     // The caption shows the line immediately; audio streams in as it is generated.
     setPhase('speaking');
-    await speak(text, { fixed });
+    await speak(text, { fixed, lang: speechTag });
     then();
   };
 
@@ -103,9 +106,12 @@ export function VoiceAgent({ onComplete }: Props) {
     setPhase('thinking');
     setError('');
     // Acknowledge instantly (pre-generated) while the next question is being written.
-    const filler = speak(FILLERS[turnsRef.current.length % FILLERS.length], { fixed: true });
+    const filler = speak(fillers[turnsRef.current.length % fillers.length], {
+      fixed: true,
+      lang: speechTag,
+    });
     try {
-      const next = await intake({ history: turnsRef.current.slice(-14) });
+      const next = await intake({ history: turnsRef.current.slice(-14), language });
       await filler;
       pushTurn({ role: 'agent', text: next.reply });
       if (next.done) {
@@ -125,13 +131,13 @@ export function VoiceAgent({ onComplete }: Props) {
   const start = () => {
     setError('');
     unlockAudio();
-    preloadSpeech(...FILLERS, CLOSING_LINE);
-    if (!turnsRef.current.length) pushTurn({ role: 'agent', text: OPENING_LINE });
+    preloadSpeech(...fillers, closing);
+    if (!turnsRef.current.length) pushTurn({ role: 'agent', text: opening });
     const lastAgent = [...turnsRef.current].reverse().find((t) => t.role === 'agent');
     void say(
-      lastAgent?.text ?? OPENING_LINE,
+      lastAgent?.text ?? opening,
       voiceSupported ? listen : () => setPhase('idle'),
-      !lastAgent || lastAgent.text === OPENING_LINE,
+      !lastAgent || lastAgent.text === opening,
     );
   };
 
@@ -146,7 +152,7 @@ export function VoiceAgent({ onComplete }: Props) {
     const text = typed.trim();
     if (!text || phase === 'thinking') return;
     unlockAudio();
-    if (!turnsRef.current.length) pushTurn({ role: 'agent', text: OPENING_LINE });
+    if (!turnsRef.current.length) pushTurn({ role: 'agent', text: opening });
     recognitionRef.current?.abort();
     stopSpeaking();
     setTyped('');
@@ -170,8 +176,8 @@ export function VoiceAgent({ onComplete }: Props) {
           type="button"
           className="orb-button"
           onClick={active ? stop : start}
-          onPointerEnter={() => preloadSpeech(OPENING_LINE)}
-          onFocus={() => preloadSpeech(OPENING_LINE)}
+          onPointerEnter={() => preloadSpeech(opening)}
+          onFocus={() => preloadSpeech(opening)}
           aria-pressed={active}
           aria-label={active ? 'Stop voice conversation' : 'Start voice conversation'}
         >
@@ -197,11 +203,11 @@ export function VoiceAgent({ onComplete }: Props) {
       <h2 id="voice-title" className="voice-title">
         {PHASE_LABEL[phase]}
       </h2>
-      <p className="voice-sub" aria-live="polite">
+      <p className="voice-sub" aria-live="polite" lang={speechTag}>
         {interim ||
           lastAgent?.text ||
           (voiceSupported
-            ? 'Calm and curious. Talk it through in about a minute.'
+            ? hint
             : 'Voice isn’t supported in this browser. Type your answers below.')}
       </p>
       {answered > 0 && (
@@ -214,10 +220,11 @@ export function VoiceAgent({ onComplete }: Props) {
         </label>
         <input
           id="voice-input"
+          lang={speechTag}
           value={typed}
           maxLength={600}
           onChange={(e) => setTyped(e.target.value)}
-          placeholder={answered ? 'Type your answer…' : 'Or type: “I got an internship offer…”'}
+          placeholder={answered ? 'Type your answer…' : placeholder}
           autoComplete="off"
         />
         <button

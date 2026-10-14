@@ -34,7 +34,43 @@ describe('containsRecommendation', () => {
   });
 });
 
+describe('containsRecommendation in Indian languages', () => {
+  it.each([
+    'आपको यह इंटर्नशिप ले लेनी चाहिए।',
+    'तुम्हें ऑफ़र ठुकरा देना चाहिए।',
+    'मेरी सलाह है कि कॉलेज पर ध्यान दो।',
+    'यही सबसे अच्छा विकल्प है।',
+    'इंटर्नशिप लेना ही सही फ़ैसला होगा।',
+    'ज़रूर ले लो, मौका बार-बार नहीं आता।',
+    'तुम्ही ही इंटर्नशिप स्वीकारावी पाहिजे.',
+    'तू कॉलेजवर लक्ष द्यावं, असं मला वाटतं; तुला ते करावं लागेल.',
+    'माझा सल्ला असा आहे की थांब.',
+    'हा सर्वोत्तम पर्याय आहे.',
+    'Aapko internship le leni chahiye.',
+    'Meri salah hai ki offer lo.',
+  ])('flags prescriptive text: %s', (text) => {
+    expect(containsRecommendation(text)).toBe(true);
+  });
+
+  it.each([
+    'सेमेस्टर की परीक्षाओं के दौरान रोज़ 10 से 6 का काम कैसे चलेगा?',
+    'इस फ़ैसले से घर में और किस पर असर पड़ेगा?',
+    'तुम्हें किस बात की सबसे ज़्यादा चिंता है?',
+    'डिसेंबरच्या परीक्षांच्या वेळी हे वेळापत्रक कसं जमेल?',
+    'या निर्णयाचा तुझ्या घरच्यांवर काय परिणाम होईल?',
+    'Agar exams aur internship dono saath chale, toh kya hoga?',
+  ])('allows neutral questions: %s', (text) => {
+    expect(containsRecommendation(text)).toBe(false);
+  });
+});
+
 describe('stripRecommendations', () => {
+  it('removes only the prescriptive Hindi sentence, split on the danda', () => {
+    expect(stripRecommendations('काम के घंटे लंबे हैं। आपको ऑफ़र ले लेना चाहिए।')).toBe(
+      'काम के घंटे लंबे हैं।',
+    );
+  });
+
   it('removes only the prescriptive sentence', () => {
     expect(stripRecommendations('The hours are long. You should decline.')).toBe(
       'The hours are long.',
