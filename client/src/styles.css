@@ -1,8 +1,8 @@
 /* BlindSpot design tokens: paper, ink, and a single amber "light". */
 :root {
-  --paper: #f7f7f5;
-  --panel: #f3f2ef;
-  --surface: #fcfcfb;
+  --paper: #f7f6f2;
+  --panel: #f1efe9;
+  --surface: #ffffff;
   --ink: #111111;
   --ink-2: #3b3b3b;
   --muted: #6b6b6b;
@@ -19,6 +19,13 @@
   --conflict-soft: #f8e1d9;
   --btn-bg: #141413;
   --btn-text: #fffefb;
+
+  /* Light & Shadow effects: the pointer's flashlight, the grid it reveals, and lift. */
+  --spot: rgb(233 163 25 / 0.2);
+  --spot-size: 520px;
+  --grid-dot: rgb(122 79 0 / 0.32);
+  --lift: 0 1px 2px rgb(20 20 19 / 0.05), 0 18px 40px -18px rgb(122 79 0 / 0.28);
+  --glow: 0 0 0 4px rgb(233 163 25 / 0.22), 0 10px 28px -10px rgb(233 163 25 / 0.55);
 
   --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
   --font-body: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -39,8 +46,9 @@
   color-scheme: light;
 }
 
+/* Dark: follows the system unless the visitor picked light; the toggle can also force it. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --paper: #0e0e0d;
     --panel: #131312;
     --surface: #171716;
@@ -57,7 +65,34 @@
     --btn-bg: #f2f1ec;
     --btn-text: #0e0e0d;
     color-scheme: dark;
+    --spot: rgb(240 180 58 / 0.09);
+    --grid-dot: rgb(243 194 90 / 0.22);
+    --lift: 0 18px 40px -18px rgb(0 0 0 / 0.7);
+    --glow: 0 0 0 4px rgb(243 194 90 / 0.18), 0 10px 28px -10px rgb(243 194 90 / 0.35);
   }
+}
+
+:root[data-theme='dark'] {
+  --paper: #0e0e0d;
+  --panel: #131312;
+  --surface: #171716;
+  --ink: #f2f1ec;
+  --ink-2: #cfcdc5;
+  --muted: #9c9a91;
+  --hairline: #2a2a27;
+  --hairline-strong: #3a3a36;
+  --amber-soft: #3a2c0d;
+  --amber-ink: #f3c25a;
+  --shadow-fill: #2c2c29;
+  --conflict: #f08a6c;
+  --conflict-soft: #3b1d15;
+  --btn-bg: #f2f1ec;
+  --btn-text: #0e0e0d;
+  color-scheme: dark;
+  --spot: rgb(240 180 58 / 0.09);
+  --grid-dot: rgb(243 194 90 / 0.22);
+  --lift: 0 18px 40px -18px rgb(0 0 0 / 0.7);
+  --glow: 0 0 0 4px rgb(243 194 90 / 0.18), 0 10px 28px -10px rgb(243 194 90 / 0.35);
 }
 
 *,
@@ -1148,4 +1183,197 @@ fieldset {
   background: var(--ink);
   border-color: var(--ink);
   color: var(--surface);
+}
+
+/* ---------- Theme switch ---------- */
+
+.topbar-end {
+  display: flex;
+  align-items: center;
+  gap: var(--s5);
+}
+
+.theme-toggle {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    box-shadow 0.25s ease,
+    border-color 0.25s ease,
+    transform 0.2s ease;
+}
+
+.theme-toggle:hover {
+  border-color: var(--amber);
+  box-shadow: var(--glow);
+  transform: translateY(-1px);
+}
+
+.theme-toggle:active {
+  transform: scale(0.94);
+}
+
+.theme-toggle svg {
+  overflow: visible;
+}
+
+.theme-rays line {
+  stroke: var(--amber);
+  stroke-width: 2.2;
+}
+
+.theme-rays,
+.theme-disc {
+  transform-origin: 16px 16px;
+  transform-box: view-box;
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.theme-disc-shadow {
+  fill: var(--shadow-fill);
+}
+
+.theme-disc-light {
+  fill: var(--amber);
+}
+
+.theme-disc-ring {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.6;
+}
+
+.theme-toggle:hover .theme-rays {
+  transform: rotate(45deg) scale(1.08);
+}
+
+/* Dark: the disc turns to its shadow side and the rays fold away. */
+:root[data-theme='dark'] .theme-rays {
+  transform: rotate(-90deg) scale(0);
+}
+
+:root[data-theme='dark'] .theme-disc {
+  transform: rotate(180deg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .theme-rays {
+    transform: rotate(-90deg) scale(0);
+  }
+  :root:not([data-theme='light']) .theme-disc {
+    transform: rotate(180deg);
+  }
+}
+
+/* The new theme spreads from the toggle (see switchTheme); keep the default cross-fade off. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* ---------- Flashlight: the pointer lights up the page ---------- */
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* Amber pool of light that follows the pointer. */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+body::before {
+  background: radial-gradient(
+    var(--spot-size) circle at var(--spot-x, 50%) var(--spot-y, 0%),
+    var(--spot),
+    transparent 65%
+  );
+}
+
+/* A dot grid that only shows where the light falls: light reveals what sits in shadow. */
+body::after {
+  background-image: radial-gradient(var(--grid-dot) 1.1px, transparent 1.4px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(
+    240px circle at var(--spot-x, 50%) var(--spot-y, 0%),
+    #000 0%,
+    transparent 75%
+  );
+  -webkit-mask-image: radial-gradient(
+    240px circle at var(--spot-x, 50%) var(--spot-y, 0%),
+    #000 0%,
+    transparent 75%
+  );
+}
+
+.has-spotlight body::before,
+.has-spotlight body::after {
+  opacity: 1;
+}
+
+/* ---------- Things lift toward the light ---------- */
+
+.how-grid li,
+.spot,
+.lang-option,
+.kpis {
+  transition:
+    transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.25s ease,
+    border-color 0.25s ease,
+    background 0.15s ease;
+}
+
+.how-grid li:hover,
+.spot:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--lift);
+  border-color: var(--hairline-strong);
+}
+
+.how-grid li:hover h3 {
+  color: var(--amber-ink);
+}
+
+.kpis:hover {
+  box-shadow: var(--lift);
+}
+
+.btn.primary:hover:not(:disabled) {
+  box-shadow: var(--glow);
+}
+
+.orb-button:hover {
+  box-shadow: var(--glow);
+}
+
+.lang-option:hover:not(.is-active) {
+  transform: translateY(-1px);
+  box-shadow: var(--lift);
+}
+
+.lang-option.is-active {
+  box-shadow: var(--glow);
+}
+
+@media (max-width: 560px) {
+  .topbar-end {
+    gap: var(--s3);
+  }
 }
