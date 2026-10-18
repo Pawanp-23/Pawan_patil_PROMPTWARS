@@ -1,4 +1,5 @@
 import type { Stage } from '../hooks/useBlindSpot';
+import { ThemeToggle } from './ThemeToggle';
 
 const STEPS: { id: Stage; label: string }[] = [
   { id: 'input', label: 'Describe' },
@@ -6,7 +7,7 @@ const STEPS: { id: Stage; label: string }[] = [
   { id: 'summary', label: 'Decide' },
 ];
 
-/** Sticky header with the wordmark and the three-step progress indicator. */
+/** Sticky header with the wordmark, the three-step progress indicator and the theme switch. */
 export function TopBar({ stage }: { stage: Stage }) {
   return (
     <header className="topbar">
@@ -15,17 +16,20 @@ export function TopBar({ stage }: { stage: Stage }) {
           <span className="logo" aria-hidden="true" />
           BlindSpot
         </a>
-        <ol className="stepper" aria-label="Progress">
-          {STEPS.map((step, index) => (
-            <li
-              key={step.id}
-              className={step.id === stage ? 'active' : undefined}
-              aria-current={step.id === stage ? 'step' : undefined}
-            >
-              <span className="mono">0{index + 1}</span> {step.label}
-            </li>
-          ))}
-        </ol>
+        <div className="topbar-end">
+          <ol className="stepper" aria-label="Progress">
+            {STEPS.map((step, index) => (
+              <li
+                key={step.id}
+                className={step.id === stage ? 'active' : undefined}
+                aria-current={step.id === stage ? 'step' : undefined}
+              >
+                <span className="mono">0{index + 1}</span> {step.label}
+              </li>
+            ))}
+          </ol>
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );

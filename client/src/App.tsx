@@ -4,6 +4,7 @@ import { Reveal } from './components/Reveal';
 import { TopBar } from './components/TopBar';
 import { useBlindSpot } from './hooks/useBlindSpot';
 import { useSharedSummary } from './hooks/useSharedSummary';
+import { useSpotlight } from './hooks/useSpotlight';
 import { LandingView } from './views/LandingView';
 
 // Only needed after an analysis, so they are split out of the initial bundle.
@@ -14,6 +15,7 @@ const Summary = lazy(() => import('./components/Summary'));
 export function App() {
   const session = useBlindSpot();
   const shared = useSharedSummary();
+  useSpotlight();
   const leaveShared = () => window.location.assign('/');
   const { stage, draft, result, liveCoverage, initialCoverage, busy, error } = session;
   const userText = [draft.reasons, draft.context].filter(Boolean).join('\n\n');
